@@ -17,7 +17,7 @@
 #
 # Olivier Devauchelle
 
-from numpy import cosh, cos, pi
+from numpy import cosh, sinh, sin, cos, pi, tanh
 
 #############################
 #
@@ -25,49 +25,79 @@ from numpy import cosh, cos, pi
 #
 #############################
 
-bibtex_reference = '''
-@book{white1991viscous,
-  title={Viscous fluid flow},
-  author={White, Frank M.},
-  year={1991},
-  ISBN={0-07-069712-4},
-  publisher={McGraw-Hill, Inc.},
-  series={Mechanical Engineering},
-  page={120},
-  edition={2},
-}
-'''
+class rectangle :
 
-def expansion_term_rectangle_pipe( i, y, z, a, b ) :
-    return ( -1 )**( ( i - 1 )/2 )*( 1 - cosh( i*pi*z/( 2*a ) )/cosh( i*pi*b/( 2*a ) ) )*cos( i*pi*y/( 2*a ) )/i**3
+    def __init__( self, a, b ) :
 
-def flow_in_rectangle_pipe( y, z, a, b, imax = 30 ) :
+        '''
+        Poiseuille flow in a rectangular pipe.
 
-    '''
-    Poiseuille flow in a rectangular pipe.
+        pipe = rectangle( a, b )
 
-    velocity = expansion( y, z, a, b, imax = 30 )
+        Parameters :
+            a, b (float) : dimensions
+        '''
 
-    Parameters :
-        y, z (float or array) : coordinates
-        a, b (float) : dimensions
-        imax (int) : number of terms in series (only odd terms matter)
+        self.a = a
+        self.b = b
 
-    Output :
-        velocity (float or array): Poiseuille velocity
-    '''
+        self.reference = '''
+        @book{white1991viscous,
+          title={Viscous fluid flow},
+          author={White, Frank M.},
+          year={1991},
+          ISBN={0-07-069712-4},
+          publisher={McGraw-Hill, Inc.},
+          series={Mechanical Engineering},
+          page={120},
+          edition={2},
+        }
+        '''
 
-    result = 0*y
+    def velocity_expansion_term( self, y, z, i ) :
+        return ( -1 )**( ( i - 1 )/2 )*( 1 - cosh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*cos( i*pi*y/( 2*self.a ) )/i**3
 
-    for i in range( 1, imax + 1, 2 ) :
-        result += expansion_term_rectangle_pipe( i, y, z, a, b )
+    def velocity_sum( self, y, z, imax, expansion_term ) :
 
-    return result*16*a**2/pi**3
+        result = 0*y
 
+        for i in range( 1, imax + 1, 2 ) :
+            result += expansion_term( y, z, i )
+
+        return result*16*self.a**2/pi**3
+
+    def velocity( self, y, z, imax = 30 ) :
+        return self.velocity_sum( y, z, imax, self.velocity_expansion_term )
+
+    def dzu_expansion_term( self, y, z, i ) :
+        return ( -1 )**( ( i - 1 )/2 )*( - i*pi/( 2*self.a )*sinh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*cos( i*pi*y/( 2*self.a ) )/i**3
+
+    def dyu_expansion_term( self, y, z, i ) :
+        return -( -1 )**( ( i - 1 )/2 )*( 1 - cosh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*i*pi/( 2*self.a )*sin( i*pi*y/( 2*self.a ) )/i**3
+
+    def dyu( self, y, z, imax = 30 ) :
+        return self.velocity_sum( y, z, imax, self.dyu_expansion_term )
+
+    def dzu( self, y, z, imax = 30 ) :
+        return self.velocity_sum( y, z, imax, self.dzu_expansion_term )
+
+    def discharge_expansion_term( self, i ) :
+        return tanh( i*pi*self.b/( 2*self.a ) )/i**5
+
+    def discharge( self, imax = 30 ) :
+
+        result = 0
+
+        for i in range( 1, imax + 1, 2 ) :
+            result += self.discharge_expansion_term( i )
+
+        result *= -192*self.a/( pi**5*self.b )
+        result += 1
+        result *= 4*self.b*self.a**3/3
+
+        return result
 
 if __name__ == '__main__' :
-
-    flow_in_rectangle_pipe( 1,1,1,1 )
 
     from pylab import *
 
@@ -100,7 +130,9 @@ if __name__ == '__main__' :
     #
     ##############################
 
-    contourf( y, z, flow_in_rectangle_pipe( y, z, a, b ) )
+    pipe = rectangle( a, b )
+
+    contourf( y, z, pipe.velocity( y, z ) )
 
     axis('equal')
 

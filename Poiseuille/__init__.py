@@ -19,7 +19,7 @@
 
 
 """
-pyFreeFem
+Poiseuille
 """
 
 __author__ = "Olivier Devauchelle"
