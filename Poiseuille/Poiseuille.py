@@ -27,7 +27,7 @@ from numpy import cosh, sinh, sin, cos, pi, tanh
 
 class rectangle :
 
-    def __init__( self, a, b ) :
+    def __init__( self, a, b, imax = 30 ) :
 
         '''
         Poiseuille flow in a rectangular pipe.
@@ -40,6 +40,7 @@ class rectangle :
 
         self.a = a
         self.b = b
+        self.imax = imax
 
         self.reference = '''
         @book{white1991viscous,
@@ -54,10 +55,8 @@ class rectangle :
         }
         '''
 
-    def velocity_expansion_term( self, y, z, i ) :
-        return ( -1 )**( ( i - 1 )/2 )*( 1 - cosh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*cos( i*pi*y/( 2*self.a ) )/i**3
 
-    def velocity_sum( self, y, z, imax, expansion_term ) :
+    def sum( self, y, z, imax, expansion_term ) :
 
         result = 0*y
 
@@ -66,8 +65,46 @@ class rectangle :
 
         return result*16*self.a**2/pi**3
 
-    def velocity( self, y, z, imax = 30 ) :
-        return self.velocity_sum( y, z, imax, self.velocity_expansion_term )
+    ##################
+    #
+    # Velocity field
+    #
+    ##################
+
+    def velocity_expansion_term( self, y, z, i ) :
+        return ( -1 )**( ( i - 1 )/2 )*( 1 - cosh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*cos( i*pi*y/( 2*self.a ) )/i**3
+
+    def velocity( self, y, z, imax = None ) :
+
+        if imax is None :
+            imax = self.imax
+            
+        return self.sum( y, z, imax, self.velocity_expansion_term )
+
+    ##################
+    #
+    # Average velocity
+    #
+    ##################
+
+    def average_velocity_expansion_term( self, y, z, i ) :
+        '''
+        z is discarded
+        '''
+        return ( -1 )**( ( i - 1 )/2 )*( 1 - 2*self.a/( self.b*i*pi )*sinh( i*pi*self.b/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*cos( i*pi*y/( 2*self.a ) )/i**3
+
+    def average_velocity( self, y, imax = None ) :
+
+        if imax is None :
+            imax = self.imax
+
+        return self.sum( y, None, imax, self.average_velocity_expansion_term )
+
+    ##################
+    #
+    # Velocity gradient
+    #
+    ##################
 
     def dzu_expansion_term( self, y, z, i ) :
         return ( -1 )**( ( i - 1 )/2 )*( - i*pi/( 2*self.a )*sinh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*cos( i*pi*y/( 2*self.a ) )/i**3
@@ -75,16 +112,33 @@ class rectangle :
     def dyu_expansion_term( self, y, z, i ) :
         return -( -1 )**( ( i - 1 )/2 )*( 1 - cosh( i*pi*z/( 2*self.a ) )/cosh( i*pi*self.b/( 2*self.a ) ) )*i*pi/( 2*self.a )*sin( i*pi*y/( 2*self.a ) )/i**3
 
-    def dyu( self, y, z, imax = 30 ) :
-        return self.velocity_sum( y, z, imax, self.dyu_expansion_term )
+    def dyu( self, y, z, imax = None ) :
 
-    def dzu( self, y, z, imax = 30 ) :
-        return self.velocity_sum( y, z, imax, self.dzu_expansion_term )
+        if imax is None :
+            imax = self.imax
+
+        return self.sum( y, z, imax, self.dyu_expansion_term )
+
+    def dzu( self, y, z, imax = None ) :
+
+        if imax is None :
+            imax = self.imax
+
+        return self.sum( y, z, imax, self.dzu_expansion_term )
+
+    ##################
+    #
+    # Discharge
+    #
+    ##################
 
     def discharge_expansion_term( self, i ) :
         return tanh( i*pi*self.b/( 2*self.a ) )/i**5
 
-    def discharge( self, imax = 30 ) :
+    def discharge( self, imax = None ) :
+
+        if imax is None :
+            imax = self.imax
 
         result = 0
 
@@ -119,7 +173,7 @@ if __name__ == '__main__' :
     #
     ##############################
 
-    y = linspace( -a, a, 30 )
+    y = linspace( -a, a, 100 )
     z = linspace( -b, 0, int( len( y )*b/a ) )
 
     y, z = meshgrid( y, z )
@@ -134,6 +188,14 @@ if __name__ == '__main__' :
 
     contourf( y, z, pipe.velocity( y, z ) )
 
+    print( pipe.discharge() )
+
     axis('equal')
+
+    figure()
+    U = [ pipe.average_velocity( yy ) for yy in y[0] ]
+    plot( y[0], U )
+    print( 2*b*trapz( U, y[0] ) )
+
 
     show()
